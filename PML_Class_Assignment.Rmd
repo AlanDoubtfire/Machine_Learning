@@ -1,0 +1,65 @@
+---
+title: "Class Assignment -Practical Machine Learning"
+author: "Brendan Ryan"
+date: "Sunday, June 22, 2014"
+output: html_document
+---
+
+Code is annotated throughout. The following steps were taken to arrive at a model which would predict the Class (A,B,C,D,E) for the 20 cases presented in the 'pml-testing.csv' file:
+1)Load training and test files
+2)Remove un-needed columns -name and timestamp, as well as empty and NA columns
+3)Subset parsed training data into training and testing datasets
+4)Look for near zero-variance predictors in dataset and eliminate
+5)Look for highly correlated predictors in dataset and eliminate
+6)Use principal components (pca) to reduce the number of variables while maintaining accuracy and fit model using Random Forest.  Calculate model accuracy using testing data
+7)Finally predict classe for testingData (pml-testing.csv) with projected accuracy of 97%
+
+```{r include=FALSE}
+#Class Assignmenet -Practical Machine Learning
+
+#Load training and test files
+trainingData=read.csv(file="C:/Users/Brendan/Documents/pml-training.csv",header=TRUE)
+testingData=read.csv(file="C:/Users/Brendan/Documents/pml-testing.csv",header=TRUE)
+
+#Remove un-needed columns -name and timestamp, as well as empty and NA columns
+parseTrainingData=subset(trainingData,select=-c(1:5,12:36,50:59,69:83,87:101,103:112,125:139,141:150))
+
+#Subset parsed training data into training and testing datasets
+library(caret)
+inTrain=createDataPartition(y=parseTrainingData$classe,p=0.7,list=FALSE)
+training=parseTrainingData[inTrain,]
+testing=parseTrainingData[-inTrain,]
+dim(training);dim(testing)
+
+#Look for near zero-variance predictors in dataset and eliminate
+nearZeroVar(training)
+training=subset(training,select=-c(1))
+
+#Look for highly correlated predictors in dataset and eliminate
+M=abs(cor(training[,-54]))
+diag(M)=0 #exclude variable analysis w/itself
+which(M>0.8,arr.ind=T) #show variables w/correlation > 80%
+
+ncol(training)
+descrCorr=cor(training[,-54])
+highCorr=findCorrelation(descrCorr,0.8)
+training=training[,-highCorr]
+ncol(training)
+
+#Use principal components (pca) to reduce the number of variables while maintaining accuracy
+#and fit model using Random Forest.  Calculate model accuracy using testing data
+modFit=train(training$classe~.,method="rf",preProcess="pca",data=training)
+
+finMod=modFit$finalModel
+finMod
+
+pred=predict(modFit,testing)
+confusionMatrix(testing$classe,pred)
+
+#Finally predict classe for testingData (pml-testing.csv) with projected accuracy of 97%
+finPred=predict(modFit,testingData)
+finPred
+#or in a different format
+table(testingData$problem_id,finPred)
+```
+
