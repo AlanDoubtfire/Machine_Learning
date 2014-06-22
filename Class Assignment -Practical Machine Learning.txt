@@ -1,0 +1,214 @@
+﻿
+  Class Assignment -Practical Machine Learning
+
+
+        /Brendan Ryan/
+
+
+        /Sunday, June 22, 2014/
+
+Code is annotated throughout. The following steps were taken to arrive
+at a model which would predict the Class (A,B,C,D,E) for the 20 cases
+presented in the ‘pml-testing.csv’ file:
+
+1)Load training and test files
+
+2)Remove un-needed columns -name and timestamp, as well as empty and NA columns
+
+3)Subset parsed training data into training and testing datasets
+
+4)Look for near zero-variance predictors in dataset and eliminate
+ 
+5)Look for highly correlated predictors in dataset and eliminate
+ 
+6)Use principal components (pca) to reduce the number of variables while maintaining accuracy and fit model using Random Forest.
+Calculate modelaccuracy using testing data
+
+7)Finally predict classe for testingData (pml-testing.csv) with projected accuracy of 97%
+
+
+|#Class Assignmenet -Practical Machine Learning
+
+#Load training and test files
+trainingData=read.csv(file="C:/Users/Brendan/Documents/pml-training.csv",header=TRUE)
+testingData=read.csv(file="C:/Users/Brendan/Documents/pml-testing.csv",header=TRUE)
+
+#Remove un-needed columns -name and timestamp, as well as empty and NA columns
+parseTrainingData=subset(trainingData,select=-c(1:5,12:36,50:59,69:83,87:101,103:112,125:139,141:150))
+
+#Subset parsed training data into training and testing datasets
+library(caret)|
+
+|inTrain=createDataPartition(y=parseTrainingData$classe,p=0.7,list=FALSE)
+training=parseTrainingData[inTrain,]
+testing=parseTrainingData[-inTrain,]
+dim(training);dim(testing)|
+
+|## [1] 13737    55|
+
+|## [1] 5885   55|
+
+|#Look for near zero-variance predictors in dataset and eliminate
+nearZeroVar(training)|
+
+|## [1] 1|
+
+|training=subset(training,select=-c(1))
+
+#Look for highly correlated predictors in dataset and eliminate
+M=abs(cor(training[,-54]))
+diag(M)=0 #exclude variable analysis w/itself
+which(M>0.8,arr.ind=T) #show variables w/correlation > 80%|
+
+|##                  row col
+## yaw_belt           4   2
+## total_accel_belt   5   2
+## accel_belt_y      10   2
+## accel_belt_z      11   2
+## accel_belt_x       9   3
+## magnet_belt_x     12   3
+## roll_belt          2   4
+## roll_belt          2   5
+## accel_belt_y      10   5
+## accel_belt_z      11   5
+## pitch_belt         3   9
+## magnet_belt_x     12   9
+## roll_belt          2  10
+## total_accel_belt   5  10
+## accel_belt_z      11  10
+## roll_belt          2  11
+## total_accel_belt   5  11
+## accel_belt_y      10  11
+## pitch_belt         3  12
+## accel_belt_x       9  12
+## gyros_arm_y       20  19
+## gyros_arm_x       19  20
+## magnet_arm_x      25  22
+## accel_arm_x       22  25
+## magnet_arm_z      27  26
+## magnet_arm_y      26  27
+## accel_dumbbell_x  35  29
+## accel_dumbbell_z  37  30
+## gyros_dumbbell_z  34  32
+## gyros_forearm_z   47  32
+## gyros_dumbbell_x  32  34
+## gyros_forearm_z   47  34
+## pitch_dumbbell    29  35
+## yaw_dumbbell      30  37
+## gyros_forearm_z   47  46
+## gyros_dumbbell_x  32  47
+## gyros_dumbbell_z  34  47
+## gyros_forearm_y   46  47|
+
+|ncol(training)|
+
+|## [1] 54|
+
+|descrCorr=cor(training[,-54])
+highCorr=findCorrelation(descrCorr,0.8)
+training=training[,-highCorr]
+ncol(training)|
+
+|## [1] 42|
+
+|#Use principal components (pca) to reduce the number of variables while maintaining accuracy
+#and fit model using Random Forest.  Calculate model accuracy using testing data
+modFit=train(training$classe~.,method="rf",preProcess="pca",data=training)|
+
+|## Loading required package: randomForest|
+
+|## Warning: package 'randomForest' was built under R version 3.0.3|
+
+|## randomForest 4.6-7
+## Type rfNews() to see new features/changes/bug fixes.|
+
+|## Warning: package 'e1071' was built under R version 3.0.3
+## Warning: invalid mtry: reset to within valid range
+
+|finMod=modFit$finalModel
+finMod|
+
+|## 
+## Call:
+##  randomForest(x = x, y = y, mtry = param$mtry) 
+##                Type of random forest: classification
+##                      Number of trees: 500
+## No. of variables tried at each split: 2
+## 
+##         OOB estimate of  error rate: 2.48%
+## Confusion matrix:
+##      A    B    C    D    E class.error
+## A 3878   12    4    9    3    0.007168
+## B   37 2568   46    2    5    0.033860
+## C    4   40 2327   22    3    0.028798
+## D    3    7  101 2134    7    0.052398
+## E    0    6   13   17 2489    0.014257|
+
+|pred=predict(modFit,testing)
+confusionMatrix(testing$classe,pred)|
+
+|## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1664    5    2    3    0
+##          B   20 1106   10    0    3
+##          C    3   13 1000    9    1
+##          D    0    1   39  923    1
+##          E    0    2    8    6 1066
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.979         
+##                  95% CI : (0.975, 0.982)
+##     No Information Rate : 0.287         
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.973         
+##  Mcnemar's Test P-Value : NA            
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.986    0.981    0.944    0.981    0.995
+## Specificity             0.998    0.993    0.995    0.992    0.997
+## Pos Pred Value          0.994    0.971    0.975    0.957    0.985
+## Neg Pred Value          0.995    0.996    0.988    0.996    0.999
+## Prevalence              0.287    0.192    0.180    0.160    0.182
+## Detection Rate          0.283    0.188    0.170    0.157    0.181
+## Detection Prevalence    0.284    0.194    0.174    0.164    0.184
+## Balanced Accuracy       0.992    0.987    0.969    0.986    0.996|
+
+|#Finally predict classe for testingData (pml-testing.csv) with projected accuracy of 97%
+finPred=predict(modFit,testingData)
+finPred|
+
+|##  [1] B A A A A E D B A A B C B A E E A B B B
+## Levels: A B C D E|
+
+|#or in a different format
+table(testingData$problem_id,finPred)|
+
+|##     finPred
+##      A B C D E
+##   1  0 1 0 0 0
+##   2  1 0 0 0 0
+##   3  1 0 0 0 0
+##   4  1 0 0 0 0
+##   5  1 0 0 0 0
+##   6  0 0 0 0 1
+##   7  0 0 0 1 0
+##   8  0 1 0 0 0
+##   9  1 0 0 0 0
+##   10 1 0 0 0 0
+##   11 0 1 0 0 0
+##   12 0 0 1 0 0
+##   13 0 1 0 0 0
+##   14 1 0 0 0 0
+##   15 0 0 0 0 1
+##   16 0 0 0 0 1
+##   17 1 0 0 0 0
+##   18 0 1 0 0 0
+##   19 0 1 0 0 0
+##   20 0 1 0 0 0|
+
